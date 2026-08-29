@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One Eye Shut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-paper: #2b2016;
+    --bg-paper-2: #352819;
+    --ink: #ede2c8;
+    --ink-dim: #c9b998;
+    --stain: #6e4527;
+    --shelf-line: rgba(0,0,0,0.55);
+    --shadow-deep: rgba(0,0,0,0.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-paper) url('images/bg-paper.jpg') center center / cover no-repeat fixed;
+    color: var(--ink);
+    font-family: 'Courier Prime', monospace;
+    overflow-x: hidden;
+  }
+
+  /* paper texture placeholder — swap background-image for an uploaded scan later */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.03), transparent 40%),
+      radial-gradient(ellipse at 80% 70%, rgba(0,0,0,0.25), transparent 50%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, transparent 2px, transparent 4px);
+    mix-blend-mode: overlay;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  /* ---------- HOME ---------- */
+
+  #home {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+  }
+
+  #corner-figure-link {
+    position: absolute;
+    bottom: clamp(1.2rem, 4vw, 2.5rem);
+    right: clamp(1.2rem, 4vw, 2.5rem);
+    display: block;
+    cursor: pointer;
+  }
+
+  .corner-figure {
+    display: block;
+    height: clamp(6rem, 14vw, 11rem);
+    width: auto;
+    opacity: 0.88;
+    filter: drop-shadow(0 2px 10px rgba(0,0,0,0.35));
+  }
+
+  .site-title {
+    margin-top: clamp(3.5rem, 7.5vw, 6rem);
+    height: clamp(3.4rem, 8.5vw, 5.6rem);
+    width: auto;
+    filter: drop-shadow(0 2px 10px var(--shadow-deep));
+    transform: rotate(-1.2deg);
+  }
+  /* the shelf */
+  .shelf-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 5vw 10vh;
+  }
+
+  .shelf {
+    position: relative;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: clamp(0.1rem, 0.5vw, 0.3rem);
+    padding-bottom: 0.5rem;
+  }
+
+  /* (shelf edge line removed for the stacked layout) */
+
+  .zine-title {
+    position: relative;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0.4rem 0.55rem;
+    color: var(--ink);
+    align-self: center;
+    height: auto;
+    display: inline-flex;
+    align-items: center;
+    transform-origin: center center;
+    transition: transform 0.38s cubic-bezier(.2,.9,.3,1.3), filter 0.38s ease, text-shadow 0.38s ease, opacity 0.3s ease;
+    filter: brightness(0.86);
+    /* strictly horizontal now — just a horizontal offset for a scattered feel */
+    transform: translateX(var(--lean-r, 0px));
+  }
+
+  .zine-title .label {
+    display: block;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 200;
+    font-size: clamp(1.1rem, 2.4vw, 1.6rem);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .zine-title .label-img {
+    display: block;
+    height: calc(clamp(1.4rem, 3vw, 2.05rem) * var(--img-scale, 1));
+    width: auto;
+  }
+
+  .zine-title:hover,
+  .zine-title:focus-visible {
+    filter: brightness(1);
+    transform: translateX(var(--lean-r, 0px)) scale(1.3);
+    text-shadow: 6px 6px 20px var(--shadow-deep);
+    z-index: 5;
+  }
+
+  .shelf.hovering .zine-title:not(:hover) {
+    opacity: 0.55;
+  }
+
+  .zine-title:focus-visible { outline: 1px dashed var(--ink-dim); outline-offset: 6px; }
+
+  /* ---------- ZINE VIEWER ---------- */
+
+  #viewer {
+    position: fixed;
+    inset: 0;
+    background: transparent; /* let the body's paper texture show through, same as #home */
+    z-index: 20;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+  }
+  #viewer.open { display: flex; }
+
+  #about {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    z-index: 20;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+  }
+  #about.open { display: flex; }
+
+  .about-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2vw 4vw 4rem;
+  }
+
+  .about-scan {
+    max-width: min(900px, 88vw);
+    max-height: 72vh;
+    width: auto;
+    height: auto;
+    filter: drop-shadow(0 4px 18px rgba(0,0,0,0.35));
+  }
+
+  .viewer-header {
+    display: flex;
+    justify-content: center;
+  }
+
+  .viewer-header .home-link {
+    display: inline-block;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+  .viewer-header .home-link:hover { opacity: 0.7; }
+
+  .pages {
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    position: relative;
+    padding: 0 2vw 2rem;
+    perspective: 1600px;
+  }
+
+  .page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 76vh;
+    aspect-ratio: 1600 / 1165; /* matches the double-spread scans, so
+      spreads fill the box exactly and covers can match their height */
+    /* leave room for the two flip-zone buttons + gaps + the pages
+       padding on either side, so the row never overflows a narrow
+       (mobile) viewport */
+    max-width: min(92vw, calc(100vw - 5.6rem - 4vw));
+    width: auto;
+  }
+
+  .book {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    perspective: 1800px;
+  }
+
+  .leaf {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+  }
+
+  .leaf.back { z-index: 1; }
+
+  /* shared by both the placeholder box and real scanned images */
+  .page-visual {
+    border-radius: 2px;
+  }
+
+  .page-sheet {
+    width: 100%;
+    height: 100%;
+    background: #e9dfc7;
+    color: #8a7658;
+    box-shadow: 0 30px 60px var(--shadow-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .page-scan {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    box-shadow: 0 30px 60px var(--shadow-deep);
+  }
+
+  /* front/back covers: same height as the double-spread pages,
+     pinned to the edge where they'd sit if the spread were whole —
+     width follows the scan's own aspect ratio */
+  /* front/back covers, style A (used by "for he said it shall be
+     like this"): sized like one half of a spread */
+  .page-scan.page-scan-half {
+    max-width: 50%;
+  }
+  .page-scan.align-right { margin-left: auto; }
+  .page-scan.align-left  { margin-right: auto; }
+
+  /* sit right beside the image, always faintly visible so they're easy to notice */
+  .flip-zone {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 3.2rem;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    font-size: 2.1rem;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .flip-zone:hover { opacity: 1; transform: scale(1.15); }
+  .flip-zone:disabled { visibility: hidden; }
+</style>
+</head>
+<body>
+
+<div id="home">
+  <img src="images/site-title.png" alt="One Eye Shut" class="site-title">
+
+  <div class="shelf-wrap">
+    <div class="shelf" id="shelf"></div>
+  </div>
+
+  <a href="#" id="corner-figure-link" aria-label="About"><img class="corner-figure" src="images/corner-figure.png" alt=""></a>
+</div>
+
+<div id="about">
+  <div class="viewer-header">
+    <a href="#" class="home-link" id="about-home-link"><img src="images/about-title.png" alt="One Eye Shut" class="site-title"></a>
+  </div>
+  <div class="about-body">
+    <img class="about-scan" src="images/about-text.png" alt="Artist statement">
+  </div>
+</div>
+
+<div id="viewer">
+  <div class="viewer-header">
+    <a href="#" class="home-link" id="home-link"><img src="images/site-title.png" alt="One Eye Shut" class="site-title"></a>
+  </div>
+  <div class="pages" id="pages">
+    <button class="flip-zone prev" id="prev-btn" aria-label="Previous page">&#8249;</button>
+    <div class="page" id="page-slot">
+      <div class="book" id="book"></div>
+    </div>
+    <button class="flip-zone next" id="next-btn" aria-label="Next page">&#8250;</button>
+  </div>
+</div>
+
+<script>
+  // ---- DATA -----------------------------------------------------------
+  // Add or edit zines here. Each needs a title + how many pages it has.
+  // Replace "pages" with real scanned image URLs later:
+  //   pages: ["scans/zine1-p1.jpg", "scans/zine1-p2.jpg", ...]
+  const ZINES = [
+    {
+      title: "when everything begins to disappear",
+      titleScale: 1.45,
+      titleImage: "images/when-everything-begins-to-disappear/title.png",
+      spreadAspect: '1600 / 1806',
+      noCovers: true,
+      images: [
+        "images/when-everything-begins-to-disappear/01.jpg",
+        "images/when-everything-begins-to-disappear/02.jpg",
+        "images/when-everything-begins-to-disappear/03.jpg",
+        "images/when-everything-begins-to-disappear/04.jpg",
+        "images/when-everything-begins-to-disappear/05.jpg",
+        "images/when-everything-begins-to-disappear/06.jpg",
+        "images/when-everything-begins-to-disappear/07.jpg"
+      ]
+    },
+    {
+      title: "for he said it shall be like this",
+      titleScale: 1.45,
+      titleImage: "images/for-he-said-it-shall-be-like-this/title.png",
+      spreadAspect: '1600 / 1069',
+      coverStyle: 'half-width',
+      images: [
+        "images/for-he-said-it-shall-be-like-this/01.jpg",
+        "images/for-he-said-it-shall-be-like-this/02.jpg",
+        "images/for-he-said-it-shall-be-like-this/03.jpg",
+        "images/for-he-said-it-shall-be-like-this/04.jpg",
+        "images/for-he-said-it-shall-be-like-this/05.jpg",
+        "images/for-he-said-it-shall-be-like-this/06.jpg",
+        "images/for-he-said-it-shall-be-like-this/07.jpg",
+        "images/for-he-said-it-shall-be-like-this/08.jpg",
+        "images/for-he-said-it-shall-be-like-this/09.jpg",
+        "images/for-he-said-it-shall-be-like-this/10.jpg",
+        "images/for-he-said-it-shall-be-like-this/11.jpg",
+        "images/for-he-said-it-shall-be-like-this/12.jpg",
+        "images/for-he-said-it-shall-be-like-this/13.jpg",
+        "images/for-he-said-it-shall-be-like-this/14.jpg"
+      ],
+    },
+    {
+      title: "meditation I",
+      titleScale: 1.45,
+      titleImage: "images/meditation-i/title.png",
+      spreadAspect: '1600 / 973',
+      images: [
+        "images/meditation-i/01.jpg",
+        "images/meditation-i/02.jpg",
+        "images/meditation-i/03.jpg",
+        "images/meditation-i/04.jpg",
+        "images/meditation-i/05.jpg",
+        "images/meditation-i/06.jpg",
+        "images/meditation-i/07.jpg",
+        "images/meditation-i/08.jpg",
+        "images/meditation-i/09.jpg",
+        "images/meditation-i/10.jpg",
+        "images/meditation-i/11.jpg",
+        "images/meditation-i/12.jpg",
+        "images/meditation-i/13.jpg",
+        "images/meditation-i/14.jpg",
+        "images/meditation-i/15.jpg",
+        "images/meditation-i/16.jpg",
+        "images/meditation-i/17.jpg",
+        "images/meditation-i/18.jpg",
+        "images/meditation-i/19.jpg",
+        "images/meditation-i/20.jpg",
+        "images/meditation-i/21.jpg",
+        "images/meditation-i/22.jpg",
+        "images/meditation-i/23.jpg"
+      ]
+    },
+    {
+      title: "four stars",
+      titleScale: 1.45,
+      titleImage: "images/four-stars/title.png",
+      spreadAspect: '1600 / 863',
+      images: [
+        "images/four-stars/01.jpg",
+        "images/four-stars/02.jpg",
+        "images/four-stars/03.jpg",
+        "images/four-stars/04.jpg",
+        "images/four-stars/05.jpg",
+        "images/four-stars/06.jpg",
+        "images/four-stars/07.jpg",
+        "images/four-stars/08.jpg",
+        "images/four-stars/09.jpg",
+        "images/four-stars/10.jpg",
+        "images/four-stars/11.jpg"
+      ]
+    },
+    {
+      title: "0—o",
+      titleImage: "images/0o/title.png",
+      spreadAspect: '1600 / 1165',
+      images: [
+        "images/0o/01.jpg",
+        "images/0o/02.jpg",
+        "images/0o/03.jpg",
+        "images/0o/04.jpg",
+        "images/0o/05.jpg",
+        "images/0o/06.jpg",
+        "images/0o/07.jpg",
+        "images/0o/08.jpg",
+        "images/0o/09.jpg",
+        "images/0o/10.jpg",
+        "images/0o/11.jpg",
+        "images/0o/12.jpg",
+        "images/0o/13.jpg",
+        "images/0o/14.jpg",
+        "images/0o/15.jpg",
+        "images/0o/16.jpg",
+        "images/0o/17.jpg",
+        "images/0o/18.jpg",
+        "images/0o/19.jpg",
+        "images/0o/20.jpg"
+      ],
+    },
+  ];
+
+  // ---- BUILD THE SHELF --------------------------------------------------
+  const shelf = document.getElementById('shelf');
+
+  ZINES.forEach((zine, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'zine-title';
+    btn.setAttribute('data-index', i);
+    // base scattered offset; actual value gets clamped by layoutStack()
+    btn.dataset.baseOffset = [-34, 22, -14, 38, -20][i % 5];
+    const scaleStyle = zine.titleScale ? ` style="--img-scale:${zine.titleScale}"` : '';
+    btn.innerHTML = zine.titleImage
+      ? `<img class="label-img" src="${zine.titleImage}" alt="${zine.title}"${scaleStyle}>`
+      : `<span class="label">${zine.title}</span>`;
+    btn.setAttribute('aria-label', zine.title);
+    btn.addEventListener('click', () => openZine(i));
+    btn.addEventListener('mouseenter', () => shelf.classList.add('hovering'));
+    btn.addEventListener('mouseleave', () => shelf.classList.remove('hovering'));
+    btn.addEventListener('focus', () => shelf.classList.add('hovering'));
+    btn.addEventListener('blur', () => shelf.classList.remove('hovering'));
+    shelf.appendChild(btn);
+  });
+
+  // Each title sits scattered left/right, but never wider than the title
+  // stacked below it — this measures natural (untransformed) widths and
+  // clamps each offset so its edges stay inside the one below.
+  function layoutStack() {
+    const items = Array.from(shelf.querySelectorAll('.zine-title'));
+    if (!items.length) return;
+
+    items.forEach(el => el.style.setProperty('--lean-r', '0px'));
+    const shelfRect = shelf.getBoundingClientRect();
+    const naturals = items.map(el => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left - shelfRect.left, right: r.right - shelfRect.left };
+    });
+
+    let belowLeft = null, belowRight = null;
+    items.forEach((el, i) => {
+      const nat = naturals[i];
+      let offset = parseFloat(el.dataset.baseOffset || '0');
+      let left = nat.left + offset;
+      let right = nat.right + offset;
+
+      if (belowLeft !== null) {
+        if (left < belowLeft) offset += (belowLeft - left);
+        left = nat.left + offset; right = nat.right + offset;
+        if (right > belowRight) offset -= (right - belowRight);
+        left = nat.left + offset; right = nat.right + offset;
+
+        // if this title is actually wider than the one below it,
+        // just center it within that title's span
+        if ((right - left) > (belowRight - belowLeft) + 0.5) {
+          const belowCenter = (belowLeft + belowRight) / 2;
+          const natCenter = (nat.left + nat.right) / 2;
+          offset = belowCenter - natCenter;
+          left = nat.left + offset; right = nat.right + offset;
+        }
+      }
+
+      el.style.setProperty('--lean-r', `${offset}px`);
+      belowLeft = left; belowRight = right;
+    });
+  }
+
+  layoutStack();
+  window.addEventListener('resize', layoutStack);
+
+  // ---- ZINE VIEWER --------------------------------------------------
+  const homeScreen = document.getElementById('home');
+  const viewer = document.getElementById('viewer');
+  const book = document.getElementById('book');
+  const pageSlot = document.getElementById('page-slot');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const homeLink = document.getElementById('home-link');
+  const about = document.getElementById('about');
+  const aboutHomeLink = document.getElementById('about-home-link');
+  const cornerFigureLink = document.getElementById('corner-figure-link');
+
+  let currentZine = null;
+  let currentPage = 0; // 0-indexed
+
+  function totalPages(zine) {
+    return zine.images ? zine.images.length : zine.pages;
+  }
+
+  function leafHTML(zine, pageIndex) {
+    const total = totalPages(zine);
+    const p = pageIndex + 1;
+    // the first and last scans of a zine are typically single covers
+    // rather than a two-page spread — size and pin them to the edge
+    // where they'd sit within a spread. Sizing style can differ per
+    // zine: 'half-width' (default) sizes the cover at half the
+    // spread's width; 'match-height' forces it to the exact same
+    // height as the spreads, letting width follow its own ratio.
+    const isCover = zine.images && !zine.noCovers && (pageIndex === 0 || pageIndex === total - 1);
+    const sizeClass = zine.coverStyle === 'half-width' ? ' page-scan-half' : '';
+    const coverClass = isCover ? (pageIndex === 0 ? sizeClass + ' align-right' : sizeClass + ' align-left') : '';
+    const inner = zine.images
+      ? `<img src="${zine.images[pageIndex]}" alt="${zine.title} — page ${p}" class="page-visual page-scan${coverClass}">`
+      : `<div class="page-visual page-sheet" data-page="${p}">${zine.title} — page placeholder</div>`;
+    return inner;
+  }
+
+  function openZine(index) {
+    currentZine = ZINES[index];
+    currentPage = 0;
+    homeScreen.style.display = 'none';
+    viewer.classList.add('open');
+    document.title = `One Eye Shut — ${currentZine.title}`;
+    // shape the frame to match this zine's own spread photos, so a
+    // height-matched cover (no coverStyle override) actually lines up
+    // with this zine's spreads rather than some other zine's ratio
+    pageSlot.style.aspectRatio = currentZine.spreadAspect || '1600 / 1165';
+    book.innerHTML = `<div class="leaf back">${leafHTML(currentZine, currentPage)}</div>`;
+    updateNav();
+  }
+
+  function updateNav() {
+    const total = totalPages(currentZine);
+    prevBtn.disabled = currentPage === 0;
+    nextBtn.disabled = currentPage === total - 1;
+  }
+
+  function flip(direction) {
+    if (!currentZine) return;
+    const total = totalPages(currentZine);
+    const target = currentPage + (direction === 'next' ? 1 : -1);
+    if (target < 0 || target >= total) return;
+
+    currentPage = target;
+    book.innerHTML = `<div class="leaf back">${leafHTML(currentZine, currentPage)}</div>`;
+    updateNav();
+  }
+
+  const nextPage = () => flip('next');
+  const prevPage = () => flip('prev');
+
+  prevBtn.addEventListener('click', prevPage);
+  nextBtn.addEventListener('click', nextPage);
+
+  function closeViewer() {
+    viewer.classList.remove('open');
+    homeScreen.style.display = '';
+    document.title = 'One Eye Shut';
+    currentZine = null;
+  }
+
+  homeLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeViewer();
+  });
+
+  function openAbout() {
+    homeScreen.style.display = 'none';
+    about.classList.add('open');
+    document.title = 'One Eye Shut — About';
+  }
+
+  function closeAbout() {
+    about.classList.remove('open');
+    homeScreen.style.display = '';
+    document.title = 'One Eye Shut';
+  }
+
+  cornerFigureLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    openAbout();
+  });
+
+  aboutHomeLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeAbout();
+  });
+
+  // esc closes the viewer, arrow keys flip pages
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && about.classList.contains('open')) {
+      closeAbout();
+      return;
+    }
+    if (!viewer.classList.contains('open')) return;
+    if (e.key === 'Escape') closeViewer();
+    if (e.key === 'ArrowRight') nextPage();
+    if (e.key === 'ArrowLeft') prevPage();
+  });
+</script>
+
+</body>
+</html>
