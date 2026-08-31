@@ -219,14 +219,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 76vh;
-    aspect-ratio: 1600 / 1165; /* matches the double-spread scans, so
-      spreads fill the box exactly and covers can match their height */
-    /* leave room for the two flip-zone buttons + gaps + the pages
-       padding on either side, so the row never overflows a narrow
-       (mobile) viewport */
-    max-width: min(92vw, calc(100vw - 5.6rem - 4vw));
-    width: auto;
+    /* width & height are set directly in JS (see sizePage()) rather
+       than via CSS aspect-ratio + max-width/max-height — browsers
+       don't reliably shrink an explicit dimension back down when the
+       *other* axis's max-constraint kicks in, which let this box
+       drift out of its true aspect ratio on narrow viewports. #book
+       must always exactly match the visible image, since absolutely-
+       positioned overlays like .page-stamp are placed relative to it. */
   }
 
   .book {
@@ -287,6 +286,22 @@
   }
   .page-scan.align-right { margin-left: auto; }
   .page-scan.align-left  { margin-right: auto; }
+
+  /* an optional handwritten note/stamp overlaid on top of one specific
+     page of a zine (positioned relative to #book, which matches the
+     page image's own box for that spread) — angled up from the
+     bottom-left, as if it's rising in from underneath the page */
+  .page-stamp {
+    position: absolute;
+    pointer-events: none;
+    width: 75%;
+    height: auto;
+    left: 22%;
+    bottom: 8%;
+    transform-origin: 0% 100%;
+    transform: rotate(-30deg);
+    z-index: 2;
+  }
 
   /* sit right beside the image, always faintly visible so they're easy to notice */
   .flip-zone {
@@ -355,6 +370,7 @@
       titleImage: "images/when-everything-begins-to-disappear/title.png",
       spreadAspect: '1600 / 1806',
       noCovers: true,
+      pageStamp: { index: 0, image: "images/when-everything-begins-to-disappear/stamp-preview.png" },
       images: [
         "images/when-everything-begins-to-disappear/01.jpg",
         "images/when-everything-begins-to-disappear/02.jpg",
@@ -554,14 +570,26 @@
   const cornerFigureLink = document.getElementById('corner-figure-link');
 
   let currentZine = null;
-  let currentPage = 0; // 0-indexed
+  let currentPage = 0; // 0-indexed, VIRTUAL page index (see resolveVirtual)
 
+  // A zine with a pageStamp gets one extra virtual "page": the stamp
+  // sits over its real page as its own stop, so flipping past it
+  // reveals the real page underneath rather than skipping ahead.
   function totalPages(zine) {
-    return zine.images ? zine.images.length : zine.pages;
+    const real = zine.images ? zine.images.length : zine.pages;
+    return zine.pageStamp ? real + 1 : real;
   }
 
-  function leafHTML(zine, pageIndex) {
-    const total = totalPages(zine);
+  // maps a virtual page index to { realIndex, showStamp }
+  function resolveVirtual(zine, v) {
+    if (!zine.pageStamp) return { realIndex: v, showStamp: false };
+    const s = zine.pageStamp.index;
+    if (v < s) return { realIndex: v, showStamp: false };
+    if (v === s) return { realIndex: s, showStamp: true };
+    return { realIndex: v - 1, showStamp: false };
+  }
+
+  function leafHTML(zine, pageIndex, realTotal) {
     const p = pageIndex + 1;
     // the first and last scans of a zine are typically single covers
     // rather than a two-page spread — size and pin them to the edge
@@ -569,7 +597,7 @@
     // zine: 'half-width' (default) sizes the cover at half the
     // spread's width; 'match-height' forces it to the exact same
     // height as the spreads, letting width follow its own ratio.
-    const isCover = zine.images && !zine.noCovers && (pageIndex === 0 || pageIndex === total - 1);
+    const isCover = zine.images && !zine.noCovers && (pageIndex === 0 || pageIndex === realTotal - 1);
     const sizeClass = zine.coverStyle === 'half-width' ? ' page-scan-half' : '';
     const coverClass = isCover ? (pageIndex === 0 ? sizeClass + ' align-right' : sizeClass + ' align-left') : '';
     const inner = zine.images
@@ -578,19 +606,50 @@
     return inner;
   }
 
+  // an optional handwritten note/stamp shown on top of one specific
+  // page of a zine (zine.pageStamp = { index, image })
+  function stampHTML(zine, showStamp) {
+    return (showStamp && zine.pageStamp)
+      ? `<img src="${zine.pageStamp.image}" alt="" class="page-stamp">`
+      : '';
+  }
+
+  function render() {
+    const realTotal = currentZine.images ? currentZine.images.length : currentZine.pages;
+    const { realIndex, showStamp } = resolveVirtual(currentZine, currentPage);
+    book.innerHTML = `<div class="leaf back">${leafHTML(currentZine, realIndex, realTotal)}</div>${stampHTML(currentZine, showStamp)}`;
+    updateNav();
+  }
+
+  // sizes #page-slot to exactly fit within the same envelope the old
+  // CSS max-width/max-height aimed for, while preserving this zine's
+  // own aspect ratio exactly — computed in JS (not left to CSS
+  // aspect-ratio + max-*) because #book must always match the visible
+  // image pixel-for-pixel, since .page-stamp is positioned relative to it.
+  function sizePage() {
+    if (!currentZine) return;
+    const [rw, rh] = (currentZine.spreadAspect || '1600 / 1165').split('/').map(s => parseFloat(s));
+    const ratio = rw / rh; // width / height
+    const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const maxW = Math.min(0.92 * window.innerWidth, window.innerWidth - 5.6 * rootPx - 0.04 * window.innerWidth);
+    const maxH = 0.76 * window.innerHeight;
+    let w = maxW, h = w / ratio;
+    if (h > maxH) { h = maxH; w = h * ratio; }
+    pageSlot.style.width = `${w}px`;
+    pageSlot.style.height = `${h}px`;
+  }
+
   function openZine(index) {
     currentZine = ZINES[index];
     currentPage = 0;
     homeScreen.style.display = 'none';
     viewer.classList.add('open');
     document.title = `One Eye Shut — ${currentZine.title}`;
-    // shape the frame to match this zine's own spread photos, so a
-    // height-matched cover (no coverStyle override) actually lines up
-    // with this zine's spreads rather than some other zine's ratio
-    pageSlot.style.aspectRatio = currentZine.spreadAspect || '1600 / 1165';
-    book.innerHTML = `<div class="leaf back">${leafHTML(currentZine, currentPage)}</div>`;
-    updateNav();
+    sizePage();
+    render();
   }
+
+  window.addEventListener('resize', sizePage);
 
   function updateNav() {
     const total = totalPages(currentZine);
@@ -605,8 +664,7 @@
     if (target < 0 || target >= total) return;
 
     currentPage = target;
-    book.innerHTML = `<div class="leaf back">${leafHTML(currentZine, currentPage)}</div>`;
-    updateNav();
+    render();
   }
 
   const nextPage = () => flip('next');
