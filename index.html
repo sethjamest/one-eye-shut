@@ -561,6 +561,7 @@
   const homeScreen = document.getElementById('home');
   const viewer = document.getElementById('viewer');
   const book = document.getElementById('book');
+  const pagesEl = document.getElementById('pages');
   const pageSlot = document.getElementById('page-slot');
   const prevBtn = document.getElementById('prev-btn');
   const nextBtn = document.getElementById('next-btn');
@@ -631,8 +632,21 @@
     const [rw, rh] = (currentZine.spreadAspect || '1600 / 1165').split('/').map(s => parseFloat(s));
     const ratio = rw / rh; // width / height
     const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const maxW = Math.min(0.92 * window.innerWidth, window.innerWidth - 5.6 * rootPx - 0.04 * window.innerWidth);
-    const maxH = 0.76 * window.innerHeight;
+    // measure the *actual* space available inside #pages, rather than
+    // assuming a flat vh fraction — a flat percentage of the whole
+    // viewport ignores how much room the header above it takes up,
+    // which is a much bigger share of a short landscape-phone viewport
+    // and was letting the page image overflow past the bottom.
+    // #page-slot is collapsed first: #pages is a flex:1 column child,
+    // and its own height still tracks whatever #page-slot's *previous*
+    // explicit size was (min-height:auto flex behavior) — measuring
+    // without collapsing it first just reads back the old value.
+    pageSlot.style.width = '0px';
+    pageSlot.style.height = '0px';
+    const pagesRect = pagesEl.getBoundingClientRect();
+    const bottomPadding = 2 * rootPx; // .pages has 2rem bottom padding
+    const maxW = Math.max(0, pagesRect.width - 5.6 * rootPx - 0.04 * window.innerWidth);
+    const maxH = Math.max(0, pagesRect.height - bottomPadding);
     let w = maxW, h = w / ratio;
     if (h > maxH) { h = maxH; w = h * ratio; }
     pageSlot.style.width = `${w}px`;
